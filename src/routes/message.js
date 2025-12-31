@@ -1,5 +1,5 @@
-import {Router} from "express"; 
-import { createConvo, createMessage, getAllMessages, getConvo } from "../controller/coversation.js";
+import { Router } from "express";
+import { createMessage, getAllMessages } from "../controller/coversation.js";
 const router  = Router(); 
 
 router.post("/create", createMessage); 

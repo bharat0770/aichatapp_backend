@@ -2,8 +2,8 @@ import Conversation from "../models/conversation.js";
 import Message from "../models/messages.js";
 import { generateAiResponse } from "../util/aifunc.js";
 
-export const createConvo = async (req, res) => {
-    const {userId, title} = req.body;
+export const createConvoversation = async (req, res) => {
+    const { userId, title } = req.body;
     const response = await Conversation.create({ user: userId, title: title });
     try {
         res.status(200).json({
@@ -18,32 +18,11 @@ export const createConvo = async (req, res) => {
     }
 }
 
-export const findConvo = async (req, res) => {
 
-    const { email, password } = req.body;
-    const user = await Conversation.findOne({ email });
-    if (!user) {
-        throw new error("user not found");
-    }
-    try {
-        res.status(200).json({
-            success: true,
-            data: response
-        });
-    } catch (error) {
-        res.status(500).json({
-            success: false,
-            data: error.message
-        });
-    }
-}
-export const getConvo = async (req, res) => {
+export const getAllConversation = async (req, res) => {
     const { email } = req.query;
     const response = await Conversation.find().populate("user");
-
-
     let conversations = response?.filter((i) => i.user.email == email);
-
     try {
         res.status(200).json({
             success: true,
@@ -59,21 +38,45 @@ export const getConvo = async (req, res) => {
 
 export const createMessage = async (req, res) => {
 
-    const { conversationId, userInput } = req.body;
-
-    // const user = await Conversation.findOne({email}); 
-    const userMessage = await Message.create({ conversation: conversationId, content: userInput, sender: "user" });
-    const aiResponse = await generateAiResponse(userInput);
-    const aiOutput = await Message.create({ conversation: conversationId, content: aiResponse || "sorry i cant response", sender: "ai" });
     try {
+
+        const { conversationId, userInput } = req.body;
+        // const user = await Conversation.findOne({email}); 
+        const aiResponse = await generateAiResponse(userInput);
+        const userMessage = await Message.create({ conversation: conversationId, content: userInput, sender: "user" });
+        const aiOutput = await Message.create({ conversation: conversationId, content: aiResponse || "sorry i cant response", sender: "ai" });
         res.status(200).json({
             success: true,
             data: [userMessage, aiOutput]
         });
     } catch (error) {
-        res.status(500).json({
+        console.error("AI Error:", error);
+        let status, message;
+
+        if (error.status === 401) {
+            status = 401;
+            message = "Authentication error. Please check API key.";
+        }
+        else if (error.status === 429) {
+            status = 429;
+            message = "Rate limit exceeded. Please try again later.";
+        }
+        else if(error.status == 455){
+            status = 455;
+            message = "Please keep prompt length > 200 characters";
+        }
+        else if (error.status >= 500) {
+            status = 500;
+            message = "AI service is temporarily unavailable.";
+        }
+        else {
+            status = 500;
+            message = "Something went wrong. Please try again later.";
+        }
+
+        res.status(status).json({
             success: false,
-            data: error.message
+            data: message
         });
     }
 }
@@ -97,15 +100,16 @@ export const getAllMessages = async (req, res) => {
         });
     }
 }
-export const updateConversation = async (req, res) => {
 
+
+export const updateConversation = async (req, res) => {
     const { conversationId } = req.query;
     const { newTitle } = req.body;
 
     // const user = await Conversation.findOne({email}); 
     const conversation = await Conversation.findById(conversationId);
-
     if (!conversation) throw new error("conversation not found");
+
     conversation.title = newTitle;
     const response = await conversation.save();
 
